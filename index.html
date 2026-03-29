@@ -1,0 +1,942 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ai Là Triệu Phú - KHTN 6</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    
+    <!-- CẤU HÌNH MATHJAX ĐỂ SỬA LỖI HIỂN THỊ CÔNG THỨC TRONG DẤU $ -->
+    <script>
+        window.MathJax = {
+            tex: {
+                inlineMath: [['$', '$'], ['\\(', '\\)']],
+                displayMath: [['$$', '$$'], ['\\[', '\\]']]
+            },
+            startup: {
+                typeset: false
+            }
+        };
+    </script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    
+    <link href="https://fonts.googleapis.com/css2?family=Pacifico&family=Roboto:wght@400;500;700;900&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary-pink: #e91e63;
+            --soft-pink: #fce4ec;
+            --bg-light: #fdfbfb;
+            --correct-green: #43a047;
+            --wrong-red: #e53935;
+        }
+
+        body { 
+            font-family: 'Roboto', sans-serif; 
+            background: var(--bg-light); 
+            margin: 0; padding: 10px;
+            height: 100vh;
+            display: flex; justify-content: center; align-items: center; 
+            color: #333; overflow: hidden;
+            position: relative;
+        }
+
+        .bg-animated {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: linear-gradient(120deg, #fdfbfb 0%, #ebedee 100%);
+            z-index: -1;
+        }
+
+        .bubble {
+            position: absolute; border-radius: 50%;
+            background: rgba(233, 30, 99, 0.08);
+            animation: float 15s infinite linear;
+        }
+
+        @keyframes float {
+            0% { transform: translateY(110vh) scale(1); opacity: 0; }
+            50% { opacity: 0.6; }
+            100% { transform: translateY(-10vh) scale(1.5); opacity: 0; }
+        }
+
+        .game-container { 
+            width: 100%; max-width: 1200px; height: 95vh;
+            background: rgba(255, 255, 255, 0.9); 
+            border: 1px solid rgba(233, 30, 99, 0.2); border-radius: 32px; 
+            position: relative; display: flex; flex-direction: column; padding: 25px; 
+            box-shadow: 0 20px 50px rgba(0,0,0,0.1);
+            backdrop-filter: blur(15px);
+        }
+
+        .top-bar { 
+            display: flex; justify-content: space-between; align-items: center; 
+            border-bottom: 2px solid var(--soft-pink); 
+            padding-bottom: 15px; margin-bottom: 20px; flex-shrink: 0;
+        }
+        
+        .main-content { display: flex; flex: 1; gap: 25px; overflow: hidden; min-height: 0; }
+        
+        .question-area { 
+            flex: 3; display: flex; flex-direction: column; 
+            background: white; border-radius: 24px; padding: 40px;
+            justify-content: flex-start; position: relative;
+            box-shadow: inset 0 0 20px rgba(0,0,0,0.02);
+            border: 1px solid #f0f0f0;
+            overflow-y: auto;
+        }
+        
+        .score-board { 
+            flex: 0.8; min-width: 260px; background: var(--soft-pink); 
+            border-radius: 24px; display: flex; flex-direction: column-reverse; /* Xếp ngược từ dưới lên */
+            font-size: 14px; padding: 15px; overflow-y: auto;
+        }
+
+        .score-item { 
+            padding: 8px 15px; margin: 2px 0; border-radius: 10px; 
+            color: #ad1457; font-weight: 500; 
+            transition: 0.3s; background: rgba(255,255,255,0.4);
+            display: flex; justify-content: space-between;
+        }
+        .score-item.active { 
+            background: var(--primary-pink); color: white; font-weight: bold;
+            transform: scale(1.05); box-shadow: 0 5px 15px rgba(233, 30, 99, 0.3);
+        }
+        .score-item.milestone {
+            background: rgba(233, 30, 99, 0.15); color: #880e4f; font-weight: 900; border: 1px solid rgba(233,30,99,0.3);
+        }
+        .score-item.milestone.active {
+            background: #ffb300; color: white; border: none;
+        }
+
+        /* Multiple Choice Styles */
+        .btn-option { 
+            background: #f8f9fa; 
+            border: 2px solid #eee; border-radius: 18px; 
+            padding: 15px 20px; margin: 6px 0; cursor: pointer; 
+            text-align: left; font-size: 1.05rem; width: 100%; color: #444; 
+            transition: all 0.2s; font-weight: 500; position: relative;
+        }
+        .btn-option:hover:not(:disabled) { border-color: var(--primary-pink); background: #fff; }
+        .btn-option.selected { background: #fce4ec !important; border-color: var(--primary-pink) !important; color: #880e4f; }
+        .btn-option.correct { background: #e8f5e9 !important; border-color: #4caf50 !important; color: #1b5e20; }
+        .btn-option.wrong { background: #ffebee !important; border-color: #f44336 !important; color: #b71c1c; }
+
+        /* True/False Styles */
+        .btn-tf {
+            border: 2px solid #eee; background: white; border-radius: 8px;
+            padding: 6px 16px; cursor: pointer; transition: 0.2s;
+            font-weight: bold; color: #666; width: 85px; text-align: center;
+        }
+        .btn-tf.selected-t { background: var(--correct-green); color: white; border-color: var(--correct-green); }
+        .btn-tf.selected-f { background: var(--wrong-red); color: white; border-color: var(--wrong-red); }
+        .btn-tf:hover:not(:disabled) { filter: brightness(0.95); }
+
+        /* Short Answer Styles */
+        .short-answer-input {
+            width: 100%; padding: 18px; border-radius: 18px; border: 3px solid #eee;
+            font-size: 1.5rem; text-align: center; font-weight: bold; color: var(--primary-pink);
+            outline: none; transition: 0.3s; margin-top: 15px; letter-spacing: 2px;
+        }
+        .short-answer-input:focus { border-color: var(--primary-pink); }
+
+        /* Lifeline Styles */
+        .lifeline-btn {
+            background: rgba(233, 30, 99, 0.1); border: 1px solid rgba(233, 30, 99, 0.2);
+            color: var(--primary-pink); padding: 6px 14px; border-radius: 20px;
+            font-weight: bold; font-size: 12px; cursor: pointer; transition: 0.3s;
+        }
+        .lifeline-btn:hover:not(.used) { background: var(--primary-pink); color: white; transform: scale(1.05); }
+        .lifeline-btn.used { opacity: 0.4; cursor: not-allowed; filter: grayscale(100%); }
+        .hidden-5050 { opacity: 0; pointer-events: none; }
+
+        .modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.5); backdrop-filter: blur(5px); display: flex; justify-content: center; align-items: center; z-index: 1000; }
+        
+        .input-field {
+            width: 100%; padding: 15px 20px; border-radius: 15px; outline: none;
+            border: 2px solid #eee; margin-bottom: 15px; font-size: 16px;
+        }
+
+        .sound-btn {
+            background: rgba(233, 30, 99, 0.1); color: var(--primary-pink);
+            border: none; border-radius: 50%; width: 45px; height: 45px;
+            font-size: 20px; cursor: pointer; display: flex; align-items: center; justify-content: center;
+            transition: 0.3s; margin-right: 15px;
+        }
+        .sound-btn:hover { background: var(--primary-pink); color: white; transform: scale(1.1); }
+
+        /* History Table */
+        .history-table { width: 100%; border-collapse: collapse; font-size: 14px; text-align: left; }
+        .history-table th, .history-table td { border: 1px solid #fce4ec; padding: 10px; }
+        .history-table th { background: var(--soft-pink); color: #880e4f; }
+        .history-table tr:nth-child(even) { background: #fffcfd; }
+    </style>
+</head>
+<body>
+
+<div class="bg-animated" id="bgBubbles"></div>
+
+<div class="game-container">
+    <div class="top-bar">
+        <div class="flex flex-col">
+            <div class="text-[11px] uppercase tracking-widest text-pink-500 font-black mb-1">ÔN TẬP KHTN 6</div>
+            <div id="userInfo" class="text-xl font-black text-gray-800" style="font-family:'Pacifico'">Ai Là Triệu Phú - KHTN 6</div>
+        </div>
+        <div class="flex items-center">
+            <button id="soundToggleBtn" onclick="toggleSound()" class="sound-btn" title="Bật/Tắt Âm thanh">🔊</button>
+            <div class="bg-white px-8 py-3 rounded-2xl shadow-sm border border-gray-100 flex items-center justify-center min-w-[120px]">
+                <span class="text-3xl font-black text-pink-600" id="timer">180s</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="main-content">
+        <div class="question-area">
+            <div id="questionWrapper" class="w-full">
+                
+                <div class="flex justify-between items-center mb-4">
+                    <div id="qLabel" class="bg-pink-100 text-pink-700 font-bold uppercase tracking-widest text-xs px-4 py-2 rounded-full">Câu hỏi 1</div>
+                    <div id="lifelines-container" class="flex gap-2" style="display: none;">
+                        <button id="ll-5050" class="lifeline-btn" onclick="useLifeline('5050')" title="Bỏ 2 phương án sai">50:50</button>
+                        <button id="ll-call" class="lifeline-btn" onclick="useLifeline('call')" title="Gọi người thân">📞 Người thân</button>
+                        <button id="ll-audience" class="lifeline-btn" onclick="useLifeline('audience')" title="Hỏi ý kiến khán giả">👥 Khán giả</button>
+                    </div>
+                </div>
+
+                <h2 id="qText" class="text-2xl font-black mb-6 text-gray-800 leading-tight"></h2>
+                
+                <p id="tfInstruction" class="text-pink-500 italic mb-4 font-medium" style="display:none;">* Vui lòng chọn Đúng hoặc Sai cho tất cả các nhận định dưới đây:</p>
+                
+                <div id="hint-box" class="hidden bg-pink-50 border-l-4 border-pink-500 p-4 mb-6 rounded-r-lg text-pink-800 text-base font-medium"></div>
+
+                <div id="optionsContainer"></div>
+                
+                <div id="actionZone" class="mt-8 text-center pt-6 border-t border-gray-100 hidden">
+                    <button id="submitAnsBtn" onclick="verifyAnswer()" class="bg-pink-600 text-white font-black px-12 py-3 rounded-xl shadow-lg hover:bg-pink-700 transition disabled:opacity-50">GỬI ĐÁP ÁN</button>
+                </div>
+            </div>
+        </div>
+        <div class="score-board" id="scoreBar">
+            <!-- Sinh ra từ JS theo chiều ngược (Câu 1 ở dưới) -->
+        </div>
+    </div>
+
+    <div class="flex justify-between items-end mt-4">
+        <div id="schoolDisplay" class="text-sm font-bold text-pink-600 bg-white px-4 py-2 rounded-xl shadow-sm">Vui lòng đăng nhập thông tin</div>
+        <div class="text-[12px] font-bold text-gray-500">
+            Bản quyền thuộc về Trường THCS Thuỷ Phương, Thành phố Huế
+        </div>
+    </div>
+
+    <!-- Modal Nhập Thông Tin -->
+    <div class="modal" id="loginModal">
+        <div class="bg-white p-10 rounded-[40px] w-full max-w-md text-center shadow-2xl">
+            <div class="text-4xl font-black mb-2 text-pink-600" style="font-family:'Pacifico'">Ai Là Triệu Phú</div>
+            <div class="text-sm font-bold text-gray-400 mb-8 uppercase tracking-widest">KHTN 6 - Bài 42: Biến dạng của lò xo</div>
+            <input type="text" id="inName" placeholder="Họ và tên" class="input-field">
+            <input type="text" id="inSBD" placeholder="Số báo danh" class="input-field">
+            <input type="text" id="inClass" placeholder="Lớp" class="input-field">
+            <input type="text" id="inSchool" placeholder="Tên trường học" class="input-field">
+            <button onclick="startGame()" class="w-full bg-pink-600 text-white py-4 rounded-2xl font-black text-lg mt-4 hover:bg-pink-700 transform active:scale-95 transition-all">VÀO NGỒI GHẾ NÓNG</button>
+        </div>
+    </div>
+
+    <!-- Modal Kết Thúc Trò Chơi -->
+    <div class="modal" id="endModal" style="display:none;">
+        <div class="bg-white p-10 rounded-[40px] w-full max-w-md text-center shadow-2xl relative">
+            <h2 id="endTitle" class="text-2xl font-black text-pink-600 mb-2 uppercase">TRÒ CHƠI KẾT THÚC</h2>
+            <div class="text-sm font-bold text-gray-500 mb-6" id="endReason"></div>
+            
+            <div class="relative w-40 h-40 mx-auto mb-6 bg-gray-50 rounded-full flex flex-col items-center justify-center border-8 border-pink-50 shadow-inner">
+                <span class="text-5xl font-black text-pink-600" id="finalScoreText">0</span>
+                <span class="text-sm font-bold text-gray-400">ĐIỂM</span>
+            </div>
+            
+            <div id="feedbackText" class="mb-8 px-4 text-base font-medium text-gray-700 italic"></div>
+
+            <div class="flex gap-3">
+                <button onclick="showHistory()" class="flex-1 bg-blue-600 text-white py-3 rounded-xl font-bold hover:bg-blue-700 transition">XEM LỊCH SỬ</button>
+                <button onclick="retryGame()" class="flex-1 bg-pink-600 text-white py-3 rounded-xl font-bold hover:bg-pink-700 transition">CHƠI LẠI</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Lịch Sử -->
+    <div class="modal" id="historyModal" style="display:none;">
+        <div class="bg-white p-6 rounded-3xl w-full max-w-4xl h-[85vh] flex flex-col shadow-2xl relative">
+            <h2 class="text-2xl font-black text-pink-600 mb-4 font-['Pacifico']">Lịch sử làm bài</h2>
+            <div class="flex-1 overflow-auto rounded-xl border border-gray-100">
+                <table class="history-table">
+                    <thead>
+                        <tr>
+                            <th width="8%">Câu</th>
+                            <th width="32%">Nội dung</th>
+                            <th width="15%">Đ/Án Bạn Chọn</th>
+                            <th width="15%">Đ/Án Đúng</th>
+                            <th width="30%">Giải thích</th>
+                        </tr>
+                    </thead>
+                    <tbody id="historyBody"></tbody>
+                </table>
+            </div>
+            <div class="mt-4 text-right">
+                <button onclick="closeHistoryAndRetry()" class="bg-pink-600 text-white py-3 px-8 rounded-xl font-bold hover:bg-pink-700 transition">ĐÓNG VÀ CHƠI LẠI</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // --- NGÂN HÀNG 40 CÂU HỎI BÀI 42: BIẾN DẠNG CỦA LÒ XO (KHTN LỚP 6) ---
+    const fullBank = [
+        // 24 CÂU TRẮC NGHIỆM ĐA LỰA CHỌN (MC)
+        { id: 1, type: "choice", q: "Vật nào dưới đây có tính chất đàn hồi?", o: ["Một viên đất sét.", "Một quả bóng cao su.", "Một tờ giấy.", "Một thanh gỗ."], a: 1, exp: "Bóng cao su có tính đàn hồi, nó có thể tự trở lại hình dạng ban đầu sau khi bị lực ép." },
+        { id: 2, type: "choice", q: "Khi dùng tay kéo dãn hai đầu của một lò xo, lò xo sẽ bị gì?", o: ["Tăng khối lượng.", "Giảm khối lượng.", "Biến dạng dãn.", "Không thay đổi gì."], a: 2, exp: "Khi bị kéo, chiều dài của lò xo tăng lên so với ban đầu, đây gọi là biến dạng dãn." },
+        { id: 3, type: "choice", q: "Chiều dài tự nhiên của lò xo là gì?", o: ["Chiều dài khi lò xo bị nén mạnh nhất.", "Chiều dài khi lò xo bị kéo dãn dài nhất.", "Chiều dài của lò xo khi chưa chịu tác dụng của lực kéo hoặc nén.", "Chiều dài của lò xo khi bị gãy."], a: 2, exp: "Khi để yên trên bàn, không kéo không nén, lò xo sẽ có chiều dài tự nhiên ($l_0$)." },
+        { id: 4, type: "choice", q: "Khi treo một vật nặng vào đầu dưới của lò xo treo thẳng đứng, chiều dài lò xo thay đổi thế nào?", o: ["Ngắn lại.", "Dài ra.", "Không thay đổi.", "Lúc dài lúc ngắn."], a: 1, exp: "Trọng lượng của vật nặng kéo lò xo làm chiều dài của nó tăng lên (dài ra)." },
+        { id: 5, type: "choice", q: "Độ dãn của lò xo được xác định bằng cách nào?", o: ["Đo chiều dài tự nhiên của lò xo.", "Đo chiều dài của lò xo sau khi treo vật.", "Lấy chiều dài khi dãn trừ đi chiều dài tự nhiên.", "Lấy chiều dài tự nhiên trừ đi chiều dài khi dãn."], a: 2, exp: "Độ dãn $\\Delta l = l - l_0$ (chiều dài lúc sau trừ chiều dài ban đầu)." },
+        { id: 6, type: "choice", q: "Lực mà lò xo tác dụng lại tay ta khi ta kéo dãn nó gọi là gì?", o: ["Trọng lực.", "Lực ma sát.", "Lực đẩy Ác-si-mét.", "Lực đàn hồi."], a: 3, exp: "Lò xo có tính đàn hồi, khi bị biến dạng nó sẽ sinh ra lực đàn hồi chống lại lực tác dụng để trở về hình dạng cũ." },
+        { id: 7, type: "choice", q: "Treo càng nhiều vật nặng giống nhau vào lò xo (trong giới hạn cho phép) thì độ dãn của lò xo sẽ thế nào?", o: ["Càng tăng (càng lớn).", "Càng giảm.", "Không thay đổi.", "Trở về bằng 0."], a: 0, exp: "Khối lượng vật treo càng lớn thì trọng lượng kéo xuống càng lớn, làm lò xo dãn càng nhiều." },
+        { id: 8, type: "choice", q: "Dụng cụ Lực kế dùng để đo lực hoạt động dựa trên nguyên tắc nào của lò xo?", o: ["Sự đổi màu của lò xo.", "Sự thay đổi khối lượng của lò xo.", "Độ dãn của lò xo tỉ lệ với lực tác dụng.", "Lò xo không bao giờ bị đứt."], a: 2, exp: "Khi lực kéo càng mạnh, lò xo của lực kế dãn càng nhiều, kim chỉ sẽ di chuyển tới vạch số lớn hơn." },
+        { id: 9, type: "choice", q: "Đồ vật nào sau đây trong đời sống có chứa lò xo?", o: ["Cái bát sứ.", "Bút bi bấm.", "Quyển vở.", "Đôi đũa tre."], a: 1, exp: "Trong bút bi bấm có một chiếc lò xo nhỏ giúp đẩy ngòi bút thụt vào sau khi sử dụng." },
+        { id: 10, type: "choice", q: "Vật nào sau đây KHÔNG có tính đàn hồi?", o: ["Lò xo bằng thép.", "Dây thun (dây cao su).", "Cục đất sét nặn.", "Đệm mút lò xo."], a: 2, exp: "Đất sét khi bị bóp méo sẽ giữ nguyên hình dạng mới, không tự phồng lại được nên không có tính đàn hồi." },
+        { id: 11, type: "choice", q: "Mối liên hệ giữa độ dãn của lò xo treo thẳng đứng và khối lượng của quả nặng treo vào nó là gì?", o: ["Khối lượng tăng bao nhiêu lần thì độ dãn giảm bấy nhiêu lần.", "Khối lượng tăng bao nhiêu lần thì độ dãn tăng bấy nhiêu lần.", "Không có mối liên hệ nào.", "Khối lượng luôn bằng với độ dãn."], a: 1, exp: "Độ dãn của lò xo tỉ lệ thuận với khối lượng vật treo (trong giới hạn đàn hồi)." },
+        { id: 12, type: "choice", q: "Một lò xo có chiều dài tự nhiên $10\\text{ cm}$. Khi treo quả cân, lò xo dài $12\\text{ cm}$. Độ dãn của lò xo là bao nhiêu?", o: ["$12\\text{ cm}$", "$10\\text{ cm}$", "$2\\text{ cm}$", "$22\\text{ cm}$"], a: 2, exp: "Độ dãn = Chiều dài lúc sau - Chiều dài ban đầu = $12 - 10 = 2\\text{ cm}$." },
+        { id: 13, type: "choice", q: "Một chiếc lò xo đang bị tay kéo dãn. Nếu buông tay ra thì lò xo sẽ có xu hướng thế nào?", o: ["Dãn dài thêm nữa.", "Thu lại về chiều dài tự nhiên ban đầu.", "Giữ nguyên chiều dài lúc bị dãn.", "Bị gãy thành nhiều khúc."], a: 1, exp: "Lực đàn hồi sẽ kéo các vòng lò xo co lại để lấy lại hình dạng và kích thước ban đầu." },
+        { id: 14, type: "choice", q: "Treo một quả nặng làm lò xo dãn $2\\text{ cm}$. Nếu treo cùng lúc hai quả nặng giống hệt như thế thì lò xo sẽ dãn bao nhiêu?", o: ["$2\\text{ cm}$", "$4\\text{ cm}$", "$1\\text{ cm}$", "$0\\text{ cm}$"], a: 1, exp: "Khối lượng tăng gấp đôi (2 quả) thì độ dãn cũng tăng gấp đôi ($2 \\times 2 = 4\\text{ cm}$)." },
+        { id: 15, type: "choice", q: "Giới hạn đàn hồi của lò xo là gì?", o: ["Là độ dài ngắn nhất của lò xo.", "Là mức kéo dãn tối đa mà nếu vượt quá, lò xo sẽ bị hỏng và không thể co lại như cũ.", "Là khối lượng của lò xo.", "Là số vòng xoắn của lò xo."], a: 1, exp: "Nếu kéo lực quá mạnh vượt mức giới hạn, lò xo sẽ bị 'dão', giãn luôn và hỏng tính đàn hồi." },
+        { id: 16, type: "choice", q: "Khi treo quả nặng vào lò xo, quả nặng đứng yên. Lúc này lực đàn hồi của lò xo cân bằng với lực nào?", o: ["Lực ma sát.", "Trọng lực (lực hút Trái Đất) tác dụng lên quả nặng.", "Lực đẩy của không khí.", "Lực hút của mặt trăng."], a: 1, exp: "Trọng lượng kéo xuống bị lực đàn hồi kéo lên triệt tiêu, giúp quả nặng nằm yên." },
+        { id: 17, type: "choice", q: "Bộ phận quan trọng nhất bên trong một chiếc lực kế ống để đo lực là gì?", o: ["Mặt kính bảo vệ.", "Lò xo.", "Vỏ nhựa ngoài.", "Sợi dây treo."], a: 1, exp: "Lò xo là 'trái tim' của lực kế, dựa vào độ dãn của nó để biết lực mạnh hay yếu." },
+        { id: 18, type: "choice", q: "Đơn vị dùng để đo độ dãn của lò xo là gì?", o: ["Newton (N).", "Kilôgam (kg).", "Centimet (cm) hoặc milimet (mm).", "Giây (s)."], a: 2, exp: "Độ dãn thực chất là một đoạn chiều dài, nên dùng đơn vị đo độ dài như cm, mm." },
+        { id: 19, type: "choice", q: "Sự biến dạng của lò xo khi ta dùng tay ấn mạnh nó xuống mặt bàn gọi là gì?", o: ["Biến dạng dãn.", "Biến dạng nén.", "Biến dạng bẻ cong.", "Không biến dạng."], a: 1, exp: "Khi ấn xuống, các vòng lò xo xít lại gần nhau làm chiều dài lò xo ngắn đi, đó là biến dạng nén." },
+        { id: 20, type: "choice", q: "Lò xo được lắp trong các chiếc nệm giường (đệm mút) có tác dụng chủ yếu để làm gì?", o: ["Tạo ra âm thanh khi ngủ.", "Giúp nệm có tính đàn hồi, tạo sự êm ái khi nằm lún xuống rồi phồng lên.", "Làm nệm nặng hơn để không bị bay.", "Để giữ ấm cho cơ thể."], a: 1, exp: "Tính đàn hồi của lò xo giúp phân tán lực, đỡ cơ thể người nằm một cách êm ái." },
+        { id: 21, type: "choice", q: "Một lò xo dài thêm $3\\text{ cm}$ khi treo quả nặng $100\\text{g}$. Hỏi độ dãn của lò xo là bao nhiêu?", o: ["$100\\text{ g}$", "$3\\text{ cm}$", "$103\\text{ cm}$", "$97\\text{ cm}$"], a: 1, exp: "Đề bài đã cho biết trực tiếp 'dài thêm 3 cm', đó chính là độ dãn $\\Delta l$." },
+        { id: 22, type: "choice", q: "Khi mua một chiếc lò xo mới tinh, em dùng thước đo được độ dài là $15\\text{ cm}$. Số $15\\text{ cm}$ đó gọi là gì?", o: ["Chiều dài khi dãn.", "Độ dãn tối đa.", "Khối lượng lò xo.", "Chiều dài tự nhiên của lò xo ($l_0$)."], a: 3, exp: "Khi chưa kéo hay nén, lò xo ở trạng thái tự nhiên." },
+        { id: 23, type: "choice", q: "Trong các vật liệu sau, vật liệu nào thường được dùng để chế tạo lò xo tốt nhất?", o: ["Sợi dây nilon mỏng.", "Sợi đồng mềm.", "Thép đàn hồi.", "Cành cây khô."], a: 2, exp: "Thép có tính đàn hồi cực tốt, độ bền cao, không dễ bị dão như cao su hay đồng." },
+        { id: 24, type: "choice", q: "Tại sao trong các chiếc cân đồng hồ dùng ở chợ lại có lò xo bên trong?", o: ["Để làm cân kêu to hơn.", "Nhờ tính đàn hồi của lò xo, độ lún của mặt cân sẽ tương ứng với khối lượng vật cần cân.", "Để trang trí cho cân đẹp.", "Để cân không bị rỉ sét."], a: 1, exp: "Lò xo trong cân bị nén lại khi đặt vật lên, hệ thống bánh răng chuyển độ lún đó thành số kg trên mặt đồng hồ." },
+
+        // 8 CÂU ĐÚNG/SAI (TF)
+        {
+            id: 25, type: "tf", q: "Nhận định về tính đàn hồi của các vật liệu xung quanh ta:",
+            opts: [
+                { text: "Sợi dây thun (cao su) có tính đàn hồi tương tự như chiếc lò xo.", ans: true },
+                { text: "Khi dùng tay nén mạnh lò xo, chiều dài của nó sẽ tăng lên.", ans: false },
+                { text: "Độ dãn của lò xo bằng chiều dài lúc sau trừ đi chiều dài tự nhiên.", ans: true },
+                { text: "Một nắm đất sét có tính đàn hồi rất tốt, nặn xong tự trở lại như cũ.", ans: false }
+            ],
+            exp: "Nén lò xo sẽ làm chiều dài nó ngắn lại chứ không phải tăng lên. Đất sét không có tính đàn hồi."
+        },
+        {
+            id: 26, type: "tf", q: "Khi treo quả nặng vào đầu dưới của một chiếc lò xo treo thẳng đứng:",
+            opts: [
+                { text: "Lò xo đang bị biến dạng dãn.", ans: true },
+                { text: "Trọng lượng của quả nặng là lực kéo làm lò xo dài ra.", ans: true },
+                { text: "Quả nặng có khối lượng càng lớn, lò xo dãn càng ít.", ans: false },
+                { text: "Khi bỏ quả nặng ra ngoài, lò xo sẽ tự động trở về chiều dài tự nhiên.", ans: true }
+            ],
+            exp: "Lò xo dãn tỉ lệ thuận với khối lượng vật treo. Vật càng nặng thì lò xo dãn càng nhiều, không phải dãn ít."
+        },
+        {
+            id: 27, type: "tf", q: "Thực hiện thí nghiệm treo các vật nặng giống nhau vào lò xo, ta thấy treo 50g thì lò xo dãn 2 cm:",
+            opts: [
+                { text: "Nếu treo quả nặng 100g, lò xo sẽ dãn 4 cm.", ans: true },
+                { text: "Tỉ lệ giữa độ dãn và khối lượng vật treo là không thay đổi.", ans: true },
+                { text: "Nếu khối lượng vật giảm đi một nửa, lò xo sẽ dãn dài gấp đôi.", ans: false },
+                { text: "Nếu tháo hết vật nặng ra, độ dãn của lò xo sẽ bằng 0.", ans: true }
+            ],
+            exp: "Treo 100g (gấp đôi 50g) thì dãn 4cm (gấp đôi 2cm). Nếu khối lượng giảm một nửa thì độ dãn cũng phải giảm một nửa."
+        },
+        {
+            id: 28, type: "tf", q: "Đặc điểm của lực đàn hồi sinh ra từ chiếc lò xo:",
+            opts: [
+                { text: "Lực đàn hồi chỉ xuất hiện khi lò xo bị biến dạng (kéo hoặc nén).", ans: true },
+                { text: "Lực đàn hồi luôn ngược chiều với lực gây ra sự biến dạng đó.", ans: true },
+                { text: "Lò xo bị dãn càng nhiều thì lực đàn hồi sinh ra càng yếu đi.", ans: false },
+                { text: "Lực đàn hồi có tác dụng kéo lò xo trở lại hình dáng ban đầu.", ans: true }
+            ],
+            exp: "Độ biến dạng càng lớn thì lực đàn hồi càng mạnh (lực chống cự càng lớn), không phải càng yếu."
+        },
+        {
+            id: 29, type: "tf", q: "Về các ứng dụng phổ biến của lò xo trong đời sống:",
+            opts: [
+                { text: "Dụng cụ 'Lực kế' dùng một chiếc lò xo để đo độ lớn của lực.", ans: true },
+                { text: "Trong các cây bút bi bấm có một lò xo nhỏ để đẩy ngòi bút.", ans: true },
+                { text: "Lò xo giảm xóc ở bánh xe máy giúp xe chạy êm hơn khi vào ổ gà.", ans: true },
+                { text: "Lò xo thường được chế tạo bằng thủy tinh để không bị rỉ sét.", ans: false }
+            ],
+            exp: "Thủy tinh rất giòn và dễ vỡ, không có tính đàn hồi để làm lò xo. Lò xo thường làm bằng thép đàn hồi."
+        },
+        {
+            id: 30, type: "tf", q: "Xét sự biến dạng đàn hồi của các sự vật hiện tượng sau:",
+            opts: [
+                { text: "Quả bóng cao su khi đập vào tường bị móp lại là biến dạng đàn hồi.", ans: true },
+                { text: "Bẻ gãy một chiếc đũa tre làm đôi là biến dạng đàn hồi.", ans: false },
+                { text: "Kéo giãn một sợi cáp đồng nhỏ, khi buông tay nó tự co lại y như cũ.", ans: false },
+                { text: "Lò xo trong đệm giường lún xuống khi có người ngồi, đứng lên nó phồng lại.", ans: true }
+            ],
+            exp: "Đũa tre bị gãy là biến dạng phá hủy. Dây đồng mềm khi bị kéo giãn sẽ dãn luôn (biến dạng dẻo), không thể tự co lại như dây chun."
+        },
+        {
+            id: 31, type: "tf", q: "Tính toán độ dãn và chiều dài lò xo:",
+            opts: [
+                { text: "Lò xo có chiều dài tự nhiên $10\\text{ cm}$, sau khi treo vật dài $15\\text{ cm}$, thì độ dãn là $25\\text{ cm}$.", ans: false },
+                { text: "Công thức tính độ dãn là: Chiều dài lúc sau trừ đi chiều dài ban đầu (tự nhiên).", ans: true },
+                { text: "Khi chưa treo vật gì cả, độ dãn của lò xo bằng 0.", ans: true },
+                { text: "Lò xo tự nhiên dài $20\\text{ cm}$, treo vật làm dãn $5\\text{ cm}$, thì chiều dài lúc đó là $25\\text{ cm}$.", ans: true }
+            ],
+            exp: "Độ dãn $\\Delta l = 15 - 10 = 5\\text{ cm}$, không phải $25\\text{ cm}$ (không được làm phép cộng)."
+        },
+        {
+            id: 32, type: "tf", q: "Nhận định về 'Giới hạn đàn hồi' của lò xo:",
+            opts: [
+                { text: "Mọi chiếc lò xo đều có thể bị kéo dãn dài vô tận mà không hỏng.", ans: false },
+                { text: "Nếu kéo quá mạnh vượt qua giới hạn đàn hồi, lò xo sẽ bị hỏng, dão và không co lại được.", ans: true },
+                { text: "Khi đo bằng lực kế, không được treo vật quá nặng vượt mức vạch số lớn nhất.", ans: true },
+                { text: "Chỉ lò xo nhựa mới có giới hạn đàn hồi, lò xo thép thì không có.", ans: false }
+            ],
+            exp: "Bất kì vật liệu đàn hồi nào (dù là thép tốt nhất) cũng có một giới hạn chịu đựng. Nếu lực kéo lớn hơn giới hạn này, vật sẽ mất tính đàn hồi."
+        },
+
+        // 8 CÂU TRẢ LỜI NGẮN (SA) - TỐI ĐA 4 KÍ TỰ
+        { id: 33, type: "short", q: "Một lò xo có chiều dài tự nhiên $12\\text{ cm}$. Treo quả nặng vào thì lò xo dài $16\\text{ cm}$. Độ dãn của lò xo là mấy $\\text{cm}$?", a: "4", exp: "Độ dãn = $16 - 12 = 4\\text{ cm}$." },
+        { id: 34, type: "short", q: "Một lò xo dãn $2\\text{ cm}$ khi treo vật $10\\text{ g}$. Nếu treo vật $30\\text{ g}$ thì lò xo dãn bao nhiêu $\\text{cm}$?", a: "6", exp: "Vật nặng gấp 3 lần ($30\\text{ g} / 10\\text{ g} = 3$) nên độ dãn cũng gấp 3 lần: $2 \\times 3 = 6\\text{ cm}$." },
+        { id: 35, type: "short", q: "Chọn các vật có tính đàn hồi và xếp các số tăng dần: 1. Bóng cao su; 2. Sợi dây đồng; 3. Lò xo; 4. Cục đất sét.", a: "13", exp: "Bóng cao su và Lò xo có tính đàn hồi có thể trở lại hình dáng cũ. Xếp tăng dần là 13." },
+        { id: 36, type: "short", q: "Lò xo có chiều dài tự nhiên $20\\text{ cm}$. Khi treo vật nặng, lò xo bị dãn một đoạn $5\\text{ cm}$. Chiều dài lò xo lúc này là bao nhiêu $\\text{cm}$?", a: "25", exp: "Chiều dài lúc sau = Chiều dài tự nhiên + Độ dãn = $20 + 5 = 25\\text{ cm}$." },
+        { id: 37, type: "short", q: "Treo quả cân $100\\text{ g}$ thì lò xo dãn $3\\text{ cm}$. Muốn lò xo dãn $9\\text{ cm}$ thì phải treo vật nặng bao nhiêu $\\text{gam}$?", a: "300", exp: "Độ dãn gấp 3 lần ($9/3 = 3$), suy ra khối lượng cần treo cũng phải gấp 3 lần: $100 \\times 3 = 300\\text{ g}$." },
+        { id: 38, type: "short", q: "Một chiếc lò xo bị kéo dãn từ $15\\text{ cm}$ thành $18\\text{ cm}$. Hỏi độ dãn của nó là bao nhiêu $\\text{cm}$?", a: "3", exp: "Độ dãn $\\Delta l = 18 - 15 = 3\\text{ cm}$." },
+        { id: 39, type: "short", q: "Treo vật $50\\text{ g}$, lò xo dãn $1\\text{ cm}$. Nếu dùng thước đo thấy lò xo dãn $4\\text{ cm}$ thì khối lượng vật treo là bao nhiêu $\\text{g}$?", a: "200", exp: "Lò xo dãn gấp 4 lần ($4/1 = 4$), khối lượng cũng gấp 4: $50 \\times 4 = 200\\text{ g}$." },
+        { id: 40, type: "short", q: "Lò xo có chiều dài lúc treo vật là $l = 22\\text{ cm}$ và chiều dài tự nhiên $l_0 = 18\\text{ cm}$. Tính độ dãn $\\Delta l$ bằng $\\text{cm}$.", a: "4", exp: "Độ dãn $\\Delta l = l - l_0 = 22 - 18 = 4\\text{ cm}$." }
+    ];
+
+    // --- GAME STATE ---
+    let sessionBank = [];
+    let currentIndex = 0;
+    let currentAns = null;
+    let isExamFinished = false;
+    let timeLeft = 180;
+    let timerInterval;
+    let isGameStarted = false;
+    let lifelines = { '5050': true, 'call': true, 'audience': true };
+    let historyLog = [];
+
+    const scoreMap = [0, 1, 2, 3, 4, 5, 5.6, 6.2, 6.8, 7.4, 8, 8.2, 8.4, 8.6, 8.8, 9, 9.2, 9.4, 9.6, 9.8, 10];
+
+    // --- AUDIO ---
+    const AudioContext = window.AudioContext || window.webkitAudioContext;
+    let audioCtx;
+    let soundEnabled = true;
+
+    function initAudio() {
+        if (!audioCtx && soundEnabled) audioCtx = new AudioContext();
+    }
+    function toggleSound() {
+        soundEnabled = !soundEnabled;
+        document.getElementById('soundToggleBtn').innerText = soundEnabled ? '🔊' : '🔇';
+        if (soundEnabled) playSound('click');
+    }
+    function playSound(type) {
+        if (!soundEnabled) return;
+        if (!audioCtx) initAudio();
+        if (!audioCtx) return;
+
+        const osc = audioCtx.createOscillator();
+        const gainNode = audioCtx.createGain();
+        osc.connect(gainNode);
+        gainNode.connect(audioCtx.destination);
+        const now = audioCtx.currentTime;
+
+        if (type === 'click' || type === 'pingpong') {
+            osc.type = 'sine'; osc.frequency.setValueAtTime(800, now);
+            osc.frequency.exponentialRampToValueAtTime(1200, now + 0.1);
+            gainNode.gain.setValueAtTime(0, now); gainNode.gain.linearRampToValueAtTime(0.3, now + 0.02);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.2);
+            osc.start(now); osc.stop(now + 0.2);
+        } else if (type === 'correct') {
+            osc.type = 'triangle'; osc.frequency.setValueAtTime(440, now);
+            osc.frequency.setValueAtTime(554.37, now + 0.1); osc.frequency.setValueAtTime(659.25, now + 0.2);
+            osc.frequency.setValueAtTime(880, now + 0.3); gainNode.gain.setValueAtTime(0.3, now);
+            gainNode.gain.linearRampToValueAtTime(0, now + 0.6); osc.start(now); osc.stop(now + 0.6);
+        } else if (type === 'wrong') {
+            osc.type = 'sawtooth'; osc.frequency.setValueAtTime(300, now);
+            osc.frequency.exponentialRampToValueAtTime(100, now + 0.5); gainNode.gain.setValueAtTime(0.3, now);
+            gainNode.gain.linearRampToValueAtTime(0, now + 0.5); osc.start(now); osc.stop(now + 0.5);
+        } else if (type === 'win') {
+            osc.type = 'square'; [523.25, 659.25, 783.99, 1046.50].forEach((freq, i) => { osc.frequency.setValueAtTime(freq, now + i * 0.15); });
+            gainNode.gain.setValueAtTime(0.2, now); gainNode.gain.linearRampToValueAtTime(0, now + 1);
+            osc.start(now); osc.stop(now + 1);
+        }
+    }
+
+    // Load LocalStorage
+    window.onload = () => {
+        const savedUser = localStorage.getItem('khtn6_user');
+        if (savedUser) {
+            try {
+                const u = JSON.parse(savedUser);
+                document.getElementById('inName').value = u.name || '';
+                document.getElementById('inSBD').value = u.sbd || '';
+                document.getElementById('inClass').value = u.class || '';
+                document.getElementById('inSchool').value = u.school || '';
+            } catch(e) {}
+        }
+    };
+
+    function shuffle(array) {
+        for (let i = array.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [array[i], array[j]] = [array[j], array[i]];
+        }
+        return array;
+    }
+
+    // Bubbles
+    const bg = document.getElementById('bgBubbles');
+    for(let i=0; i<25; i++) {
+        const b = document.createElement('div');
+        b.className = 'bubble';
+        const size = Math.random() * 80 + 20;
+        b.style.width = size + 'px'; b.style.height = size + 'px';
+        b.style.left = Math.random() * 100 + 'vw';
+        b.style.animationDelay = Math.random() * 10 + 's';
+        bg.appendChild(b);
+    }
+
+    function startGame() {
+        const name = document.getElementById('inName').value;
+        const sbd = document.getElementById('inSBD').value;
+        const className = document.getElementById('inClass').value;
+        const school = document.getElementById('inSchool').value;
+        if(!name || !sbd) return alert("Vui lòng điền đủ thông tin!");
+
+        localStorage.setItem('khtn6_user', JSON.stringify({ name, sbd, class: className, school }));
+        document.getElementById('userInfo').innerText = `${name.toUpperCase()} - ${className} (SBD: ${sbd})`;
+        document.getElementById('schoolDisplay').innerText = `${name} - SBD: ${sbd}`;
+        
+        initAudio(); playSound('click');
+        resetGameEngine();
+        document.getElementById('loginModal').style.display = 'none';
+    }
+
+    function retryGame() {
+        playSound('click');
+        document.getElementById('endModal').style.display = 'none';
+        document.getElementById('historyModal').style.display = 'none';
+        resetGameEngine();
+    }
+
+    function closeHistoryAndRetry() {
+        retryGame();
+    }
+
+    function resetGameEngine() {
+        isExamFinished = false;
+        currentIndex = 0;
+        historyLog = [];
+        lifelines = { '5050': true, 'call': true, 'audience': true };
+        document.getElementById('ll-5050').classList.remove('used');
+        document.getElementById('ll-call').classList.remove('used');
+        document.getElementById('ll-audience').classList.remove('used');
+        document.getElementById('lifelines-container').style.display = 'flex';
+
+        let mcs = shuffle([...fullBank.filter(q => q.type === 'choice')]).slice(0, 12);
+        let tfs = shuffle([...fullBank.filter(q => q.type === 'tf')]).slice(0, 4);
+        let sas = shuffle([...fullBank.filter(q => q.type === 'short')]).slice(0, 4);
+        sessionBank = [...mcs, ...tfs, ...sas];
+
+        isGameStarted = true;
+        renderScoreBoard();
+        loadQuestion();
+    }
+
+    function renderScoreBoard() {
+        const board = document.getElementById('scoreBar');
+        board.innerHTML = '';
+        for (let i = 1; i <= 20; i++) {
+            const div = document.createElement('div');
+            div.className = 'score-item';
+            div.id = `score-dot-${i}`;
+            if(i === 5 || i === 10 || i === 20) div.classList.add('milestone');
+            div.innerHTML = `<span>Câu ${i}</span><span>${scoreMap[i].toString().replace('.', ',')}</span>`;
+            board.appendChild(div);
+        }
+        updateScoreBoardHighlight();
+    }
+
+    function updateScoreBoardHighlight() {
+        for (let i = 1; i <= 20; i++) {
+            const el = document.getElementById(`score-dot-${i}`);
+            el.classList.remove('active');
+            if (i === currentIndex + 1) el.classList.add('active');
+        }
+    }
+
+    function startTimer() {
+        timerInterval = setInterval(() => {
+            timeLeft--;
+            const timerEl = document.getElementById('timer');
+            timerEl.innerText = `${timeLeft}s`;
+            if (timeLeft <= 30) {
+                timerEl.style.color = "var(--wrong-red)";
+            } else {
+                timerEl.style.color = "var(--primary-pink)";
+            }
+            if(timeLeft <= 0) {
+                clearInterval(timerInterval);
+                document.querySelectorAll('.btn-option').forEach(b => b.disabled = true);
+                const submitBtn = document.getElementById('submitAnsBtn');
+                if(submitBtn) submitBtn.disabled = true;
+                handleGameOver(false, "HẾT THỜI GIAN!");
+            }
+        }, 1000);
+    }
+
+    function loadQuestion() {
+        if(currentIndex >= 20) return;
+        currentAns = null;
+        updateScoreBoardHighlight();
+
+        const qData = sessionBank[currentIndex];
+        document.getElementById('qLabel').innerText = `CÂU HỎI ${currentIndex + 1}`;
+        document.getElementById('qText').innerHTML = qData.q;
+        
+        const hintBox = document.getElementById('hint-box');
+        if (qData.activeHint) {
+            hintBox.innerHTML = qData.activeHint; hintBox.classList.remove('hidden');
+        } else {
+            hintBox.classList.add('hidden');
+        }
+
+        const tfInstruct = document.getElementById('tfInstruction');
+        tfInstruct.style.display = (qData.type === 'tf') ? 'block' : 'none';
+
+        const cont = document.getElementById('optionsContainer');
+        cont.innerHTML = '';
+        
+        const actionZone = document.getElementById('actionZone');
+        const submitBtn = document.getElementById('submitAnsBtn');
+        submitBtn.disabled = true;
+
+        if(qData.type === "choice") {
+            actionZone.classList.add('hidden'); // MC tự động submit khi click
+            if(!qData.shuffledOpt) {
+                let mapped = qData.o.map((text, idx) => ({ text, isCorrect: idx === qData.a }));
+                mapped = shuffle(mapped);
+                qData.shuffledOpt = mapped.map(x => x.text);
+                qData.correctIdx = mapped.findIndex(x => x.isCorrect);
+            }
+
+            qData.shuffledOpt.forEach((opt, idx) => {
+                const btn = document.createElement('button');
+                btn.className = 'btn-option';
+                btn.id = `opt-${idx}`;
+                if (qData.hiddenOptions && qData.hiddenOptions.includes(idx)) {
+                    btn.classList.add('hidden-5050');
+                }
+                btn.innerHTML = `<span class="text-pink-500 font-black mr-4">${String.fromCharCode(65+idx)}.</span> ${opt}`;
+                btn.onclick = () => { 
+                    playSound('pingpong');
+                    currentAns = idx;
+                    document.querySelectorAll('.btn-option').forEach(b => b.classList.remove('selected'));
+                    btn.classList.add('selected');
+                    document.querySelectorAll('.btn-option').forEach(b => b.disabled = true);
+                    setTimeout(verifyAnswer, 800);
+                };
+                cont.appendChild(btn);
+            });
+        } 
+        else if(qData.type === "tf") {
+            actionZone.classList.remove('hidden');
+            currentAns = [null, null, null, null];
+            
+            qData.opts.forEach((opt, idx) => {
+                const row = document.createElement('div');
+                row.className = 'flex items-center justify-between bg-pink-50/30 p-3 rounded-xl border border-pink-100 mb-2';
+                
+                const textDiv = document.createElement('div');
+                textDiv.className = 'flex-1 mr-4 text-gray-700 leading-relaxed';
+                textDiv.innerHTML = `<b class="text-pink-600 mr-2">${String.fromCharCode(97+idx)})</b> ${opt.text}`;
+                
+                const btnGroup = document.createElement('div');
+                btnGroup.className = 'flex gap-2';
+                
+                const btnT = document.createElement('button');
+                btnT.className = 'btn-tf text-green-600 hover:bg-green-50';
+                btnT.innerText = 'Đúng';
+                
+                const btnF = document.createElement('button');
+                btnF.className = 'btn-tf text-red-600 hover:bg-red-50';
+                btnF.innerText = 'Sai';
+
+                btnT.onclick = () => {
+                    playSound('pingpong');
+                    currentAns[idx] = true;
+                    btnT.classList.add('selected-t'); btnF.classList.remove('selected-f');
+                    checkEnableSubmit();
+                };
+                btnF.onclick = () => {
+                    playSound('pingpong');
+                    currentAns[idx] = false;
+                    btnF.classList.add('selected-f'); btnT.classList.remove('selected-t');
+                    checkEnableSubmit();
+                };
+                btnGroup.appendChild(btnT); btnGroup.appendChild(btnF);
+                row.appendChild(textDiv); row.appendChild(btnGroup);
+                cont.appendChild(row);
+            });
+        }
+        else if(qData.type === "short") {
+            actionZone.classList.remove('hidden');
+            const input = document.createElement('input');
+            input.type = "text";
+            input.id = "saInput";
+            input.className = "short-answer-input";
+            input.placeholder = "Nhập đáp án (tối đa 4 kí tự)";
+            input.maxLength = 4;
+            input.oninput = (e) => { 
+                currentAns = e.target.value.trim();
+                checkEnableSubmit();
+            };
+            input.addEventListener('keypress', function(e) {
+                if(e.key === 'Enter' && currentAns && currentAns !== "") verifyAnswer();
+            });
+            cont.appendChild(input);
+            setTimeout(() => input.focus(), 100);
+        }
+        
+        if (window.MathJax && MathJax.typesetPromise) {
+            MathJax.typesetPromise().catch(function (err) {});
+        }
+
+        clearInterval(timerInterval);
+        timeLeft = 180;
+        document.getElementById('timer').innerText = `${timeLeft}s`;
+        document.getElementById('timer').style.color = "var(--primary-pink)";
+        startTimer();
+    }
+
+    function checkEnableSubmit() {
+        const qData = sessionBank[currentIndex];
+        const btn = document.getElementById('submitAnsBtn');
+        if(qData.type === 'tf') {
+            btn.disabled = !currentAns.every(x => x !== null);
+        } else if (qData.type === 'short') {
+            btn.disabled = !currentAns || currentAns === "";
+        }
+    }
+
+    function verifyAnswer() {
+        clearInterval(timerInterval);
+        document.getElementById('submitAnsBtn').disabled = true;
+        const qData = sessionBank[currentIndex];
+        let isCorrect = false;
+        
+        let userStr = "";
+        let correctStr = "";
+
+        if(qData.type === "choice") {
+            isCorrect = (currentAns === qData.correctIdx);
+            
+            if (currentAns !== null) {
+                document.getElementById(`opt-${currentAns}`).classList.remove('selected');
+                if(isCorrect) {
+                    document.getElementById(`opt-${currentAns}`).classList.add('correct');
+                } else {
+                    document.getElementById(`opt-${currentAns}`).classList.add('wrong');
+                    document.getElementById(`opt-${qData.correctIdx}`).classList.add('correct');
+                }
+                userStr = String.fromCharCode(65+currentAns);
+            } else {
+                userStr = "Không trả lời";
+                document.getElementById(`opt-${qData.correctIdx}`).classList.add('correct');
+            }
+            
+            correctStr = String.fromCharCode(65+qData.correctIdx);
+        } 
+        else if (qData.type === "tf") {
+            if (currentAns.includes(null)) {
+                isCorrect = false;
+                userStr = "Không trả lời đủ";
+            } else {
+                isCorrect = currentAns.every((v, i) => v === qData.opts[i].ans);
+                userStr = currentAns.map(v => v ? 'Đ' : 'S').join(', ');
+            }
+            correctStr = qData.opts.map(v => v.ans ? 'Đ' : 'S').join(', ');
+            if(!isCorrect) {
+                document.querySelectorAll('.btn-tf').forEach(b => b.style.opacity = '0.5');
+            }
+        } 
+        else if (qData.type === "short") {
+            if (!currentAns || currentAns === "") {
+                isCorrect = false;
+                userStr = "Không trả lời";
+            } else {
+                isCorrect = (currentAns.toLowerCase() === qData.a.toLowerCase());
+                userStr = currentAns;
+            }
+            
+            correctStr = qData.a;
+            const inp = document.getElementById('saInput');
+            if (inp) {
+                if(isCorrect) {
+                    inp.style.borderColor = 'var(--correct-green)'; inp.style.background = '#e8f5e9';
+                } else {
+                    inp.style.borderColor = 'var(--wrong-red)'; inp.style.background = '#ffebee';
+                }
+            }
+        }
+
+        historyLog.push({
+            num: currentIndex + 1,
+            q: qData.q,
+            u: userStr,
+            c: correctStr,
+            exp: qData.exp,
+            isRight: isCorrect
+        });
+
+        if(isCorrect) {
+            playSound('correct');
+            setTimeout(() => {
+                currentIndex++;
+                if(currentIndex === 20) handleGameOver(true, "TUYỆT VỜI! BẠN ĐÃ TRỞ THÀNH TRIỆU PHÚ!");
+                else loadQuestion();
+            }, 1500);
+        } else {
+            playSound('wrong');
+            setTimeout(() => handleGameOver(false, "TRẢ LỜI SAI!"), 2000);
+        }
+    }
+
+    function handleGameOver(isWin, reason) {
+        clearInterval(timerInterval);
+        isExamFinished = true;
+        document.getElementById('lifelines-container').style.display = 'none';
+        
+        let finalScore = 0;
+        if(isWin) finalScore = 10;
+        else {
+            if (currentIndex >= 10) finalScore = 8;
+            else if (currentIndex >= 5) finalScore = 5;
+            else finalScore = 0;
+        }
+
+        document.getElementById('endModal').style.display = 'flex';
+        document.getElementById('endTitle').innerText = isWin ? "CHÚC MỪNG CHIẾN THẮNG" : "TRÒ CHƠI KẾT THÚC";
+        document.getElementById('endReason').innerText = reason;
+        document.getElementById('finalScoreText').innerText = finalScore.toString().replace('.', ',');
+        
+        const feedbackEl = document.getElementById('feedbackText');
+        if(finalScore === 10) {
+            feedbackEl.innerText = "“Xuất sắc! Bạn đã vượt qua 20/20 câu!”";
+            playSound('win');
+            if(window.confetti) confetti({ particleCount: 150, spread: 100, origin: { y: 0.6 } });
+        }
+        else if(finalScore >= 8) {
+            feedbackEl.innerText = "“Tuyệt vời! Đạt được mốc 10 câu là một kết quả Tốt.”";
+            playSound('win');
+            if(window.confetti) confetti({ particleCount: 80, spread: 80, origin: { y: 0.6 } });
+        }
+        else if(finalScore >= 5) {
+            feedbackEl.innerText = "“Khá lắm, bạn đã vượt qua cột mốc đầu tiên!”";
+            playSound('correct');
+        }
+        else {
+            feedbackEl.innerText = "“Rất tiếc, bạn chưa qua được cột mốc 5. Hãy thử lại nhé!”";
+        }
+        
+        initScratchCard();
+    }
+
+    function showHistory() {
+        document.getElementById('endModal').style.display = 'none';
+        const tbody = document.getElementById('historyBody');
+        tbody.innerHTML = '';
+        historyLog.forEach(h => {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td class="text-center font-bold text-pink-600">${h.num}</td>
+                <td>${h.q}</td>
+                <td class="font-bold ${h.isRight ? 'text-green-600' : 'text-red-600'}">${h.u}</td>
+                <td class="font-bold text-green-600">${h.c}</td>
+                <td class="text-gray-500 italic">${h.exp}</td>
+            `;
+            tbody.appendChild(tr);
+        });
+        if (window.MathJax && MathJax.typesetPromise) MathJax.typesetPromise();
+        document.getElementById('historyModal').style.display = 'flex';
+    }
+
+    function useLifeline(type) {
+        if (!lifelines[type] || isExamFinished) return;
+        playSound('pingpong');
+        lifelines[type] = false;
+        document.getElementById(`ll-${type}`).classList.add('used');
+
+        let q = sessionBank[currentIndex];
+        let hintSource = q.exp; 
+
+        if (q.type === 'choice') {
+            if (type === '5050') {
+                let wrongs = [0,1,2,3].filter(i => i !== q.correctIdx);
+                wrongs = shuffle(wrongs);
+                q.hiddenOptions = [wrongs[0], wrongs[1]];
+                document.getElementById(`opt-${wrongs[0]}`).classList.add('hidden-5050');
+                document.getElementById(`opt-${wrongs[1]}`).classList.add('hidden-5050');
+            } else if (type === 'call') {
+                let ansChar = String.fromCharCode(65 + q.correctIdx);
+                showHintBox(`📞 <b>Người thân nói:</b> "Theo mình đáp án đúng là <b>${ansChar}</b>. ${hintSource}"`);
+            } else if (type === 'audience') {
+                let votes = [0, 0, 0, 0];
+                let correctVote = Math.floor(Math.random() * 31) + 45;
+                votes[q.correctIdx] = correctVote;
+                let remain = 100 - correctVote;
+                let wrongs = [0,1,2,3].filter(i => i !== q.correctIdx);
+                votes[wrongs[0]] = Math.floor(Math.random() * (remain * 0.6)); remain -= votes[wrongs[0]];
+                votes[wrongs[1]] = Math.floor(Math.random() * remain); remain -= votes[wrongs[1]];
+                votes[wrongs[2]] = remain;
+                showHintBox(`👥 <b>Khán giả bình chọn:</b><br> <b>A:</b> ${votes[0]}% &nbsp;|&nbsp; <b>B:</b> ${votes[1]}% &nbsp;|&nbsp; <b>C:</b> ${votes[2]}% &nbsp;|&nbsp; <b>D:</b> ${votes[3]}%`);
+            }
+        } else {
+            if (type === 'call') showHintBox(`📞 <b>Người thân gợi ý:</b> ${hintSource}`);
+            else if (type === 'audience') showHintBox(`👥 <b>Khán giả gợi ý:</b> ${hintSource}`);
+            else showHintBox(`💡 <b>Gợi ý:</b> ${hintSource}`);
+        }
+    }
+
+    function showHintBox(content) {
+        const hintBox = document.getElementById('hint-box');
+        hintBox.innerHTML = content;
+        hintBox.classList.remove('hidden');
+    }
+
+    function initScratchCard() {
+        const canvas = document.getElementById('scratchCard');
+        if(!canvas) return;
+        const ctx = canvas.getContext('2d');
+        canvas.width = canvas.offsetWidth;
+        canvas.height = canvas.offsetHeight;
+        ctx.fillStyle = '#fce4ec';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        
+        ctx.font = "20px Roboto";
+        ctx.fillStyle = "#e91e63";
+        ctx.textAlign = "center";
+        ctx.fillText("Cạo để xem điểm", canvas.width/2, canvas.height/2 + 5);
+
+        let isDrawing = false;
+        const scratch = (e) => {
+            if(!isDrawing) return;
+            const rect = canvas.getBoundingClientRect();
+            const x = (e.touches ? e.touches[0].clientX : e.clientX) - rect.left;
+            const y = (e.touches ? e.touches[0].clientY : e.clientY) - rect.top;
+            ctx.globalCompositeOperation = 'destination-out';
+            ctx.beginPath(); ctx.arc(x, y, 25, 0, Math.PI * 2); ctx.fill();
+        };
+        canvas.onmousedown = () => isDrawing = true;
+        window.onmouseup = () => isDrawing = false;
+        canvas.onmousemove = scratch;
+        canvas.ontouchstart = (e) => { isDrawing = true; scratch(e); };
+        canvas.ontouchmove = scratch;
+    }
+</script>
+</body>
+</html>
